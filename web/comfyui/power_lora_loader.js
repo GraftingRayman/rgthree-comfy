@@ -51,8 +51,8 @@ class RgthreePowerLoraLoader extends RgthreeBaseServerNode {
         this.size = this.size || [0, 0];
         this.size[0] = Math.max(this.size[0], computed[0]);
         this.size[1] = Math.max(this.size[1], computed[1]);
-        this.setDirtyCanvas(true, true);
         this.randomizeLoras();
+        this.setDirtyCanvas(true, true);
     }
     addNewLoraWidget(lora) {
         this.loraWidgetsCounter++;
@@ -71,6 +71,11 @@ class RgthreePowerLoraLoader extends RgthreeBaseServerNode {
             this.randomizeLoras();
             return true;
         }));
+        this.addCustomWidget(new RgthreeBetterButtonWidget("🎲 Randomize Enabled Loras", () => {
+            this.randomizeEnabledLoras();
+            return true;
+        }));
+
         this.widgetButtonSpacer = this.addCustomWidget(new RgthreeDividerWidget({ marginTop: 4, marginBottom: 0, thickness: 0 }));
         this.addCustomWidget(new RgthreeBetterButtonWidget("➕ Add Lora", (event, pos, node) => {
             rgthreeApi.getLoras().then((loras) => {
@@ -219,9 +224,33 @@ class RgthreePowerLoraLoader extends RgthreeBaseServerNode {
             console.log("No LoRAs enabled after randomization.");
         }
 
-    // Ensure the UI reflects the changes
-    this.setDirtyCanvas(true, true);
-}
+        // Ensure the UI reflects the changes
+        this.setDirtyCanvas(true, true);
+    }
+    randomizeEnabledLoras() {
+        // Step 1: Identify enabled LoRA widgets
+        const enabledWidgets = this.widgets.filter(widget => widget.name.startsWith("lora_") && widget.value.on);
+
+        if (enabledWidgets.length > 0) {
+            // Step 2: Generate random weights and normalize them
+            let randomWeights = enabledWidgets.map(() => Math.random());
+            const sumWeights = randomWeights.reduce((sum, weight) => sum + weight, 0);
+            randomWeights = randomWeights.map(weight => weight / sumWeights);
+
+            // Step 3: Assign normalized weights to the enabled LoRAs
+            enabledWidgets.forEach((widget, index) => {
+                widget.value.strength = randomWeights[index];
+            });
+    
+            console.log("Enabled LoRAs have been randomized.");
+        } else {
+            console.log("No enabled LoRAs to randomize.");
+        }
+
+        // Ensure the UI reflects the changes
+        this.setDirtyCanvas(true, true);
+    }
+
     static setUp(comfyClass, nodeData) {
         RgthreeBaseServerNode.registerForOverride(comfyClass, nodeData, NODE_CLASS);
     }
