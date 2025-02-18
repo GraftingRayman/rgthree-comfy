@@ -75,7 +75,6 @@ class RgthreePowerLoraLoader extends RgthreeBaseServerNode {
             this.randomizeEnabledLoras();
             return true;
         }));
-
         this.widgetButtonSpacer = this.addCustomWidget(new RgthreeDividerWidget({ marginTop: 4, marginBottom: 0, thickness: 0 }));
         this.addCustomWidget(new RgthreeBetterButtonWidget("➕ Add Lora", (event, pos, node) => {
             rgthreeApi.getLoras().then((loras) => {
