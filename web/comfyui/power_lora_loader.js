@@ -201,24 +201,27 @@ class RgthreePowerLoraLoader extends RgthreeBaseServerNode {
         // Step 1: Identify all LoRA widgets
         const loraWidgets = this.widgets.filter(widget => widget.name.startsWith("lora_"));
 
-        // Step 2: Randomly enable some LoRAs
-        loraWidgets.forEach(widget => {
-            widget.value.on = Math.random() > 0.5; // 50% chance of being enabled
+        // Step 2: Shuffle LoRA widgets to randomize selection
+        const shuffledWidgets = loraWidgets.sort(() => Math.random() - 0.5);
+
+        // Step 3: Enable the first five LoRAs and disable the rest
+        shuffledWidgets.forEach((widget, index) => {
+            widget.value.on = index < 5;
         });
 
-        // Step 3: Collect all enabled LoRAs
-        const enabledWidgets = loraWidgets.filter(widget => widget.value.on);
+        // Step 4: Collect enabled LoRAs
+        const enabledWidgets = shuffledWidgets.slice(0, 5);
 
         if (enabledWidgets.length > 0) {
-        // Step 4: Generate random weights and normalize them
+            // Step 5: Generate random weights and normalize them
             let randomWeights = enabledWidgets.map(() => Math.random());
             const sumWeights = randomWeights.reduce((sum, weight) => sum + weight, 0);
             randomWeights = randomWeights.map(weight => weight / sumWeights);
-    
-            // Step 5: Assign normalized weights to the enabled LoRAs
+
+            // Step 6: Assign normalized weights to the enabled LoRAs
             enabledWidgets.forEach((widget, index) => {
-                 widget.value.strength = randomWeights[index];
-             });
+                widget.value.strength = randomWeights[index];
+            });
         } else {
             console.log("No LoRAs enabled after randomization.");
         }
