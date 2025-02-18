@@ -263,3 +263,95 @@ export function drawWidgetButton(drawCtx, text, isMouseDownedAndOver = false) {
         drawCtx.ctx.fillText(text, drawCtx.node.size[0] / 2, drawCtx.y + drawCtx.height / 2 + (isMouseDownedAndOver ? 1 : 0));
     }
 }
+export class RgthreeTextInputWidget extends RgthreeBaseWidget {
+    constructor(name, initialValue = "", placeholder = "Enter text...") {
+        super(name);
+        this.value = initialValue;
+        this.placeholder = placeholder;
+        this.isFocused = false;
+        this.cursorVisible = true;
+        setInterval(() => this.cursorVisible = !this.cursorVisible, 500); // Cursor blinking
+    }
+
+    draw(ctx, node, width, posY, height) {
+        ctx.save();
+        ctx.fillStyle = "#222";
+        ctx.fillRect(15, posY, width - 30, height - 4); // Background box
+        ctx.strokeStyle = "#666";
+        ctx.strokeRect(15, posY, width - 30, height - 4); // Border
+
+        ctx.textAlign = "left";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = LiteGraph.WIDGET_TEXT_COLOR;
+        ctx.fillText(this.value || this.placeholder, 20, posY + height / 2);
+
+        // Cursor
+        if (this.isFocused && this.cursorVisible) {
+            const textWidth = ctx.measureText(this.value).width;
+            ctx.fillRect(20 + textWidth + 2, posY + 6, 2, height - 12);
+        }
+
+        ctx.restore();
+    }
+
+    mouse(event, pos, node) {
+        if (event.type === "pointerdown") {
+            const insideX = pos[0] >= 15 && pos[0] <= node.size[0] - 15;
+            const insideY = pos[1] >= this.last_y && pos[1] <= this.last_y + LiteGraph.NODE_WIDGET_HEIGHT;
+            this.isFocused = insideX && insideY;
+            this.setDirtyCanvas(true);
+            return this.isFocused;
+        }
+        return false;
+    }
+
+    key(event) {
+        if (!this.isFocused) return false;
+        if (event.key === "Enter") {
+            this.isFocused = false; // Exit input on Enter
+        } else if (event.key === "Backspace") {
+            this.value = this.value.slice(0, -1); // Remove last character
+        } else if (event.key.length === 1) {
+            this.value += event.key; // Add character
+        }
+        this.setDirtyCanvas(true);
+        return true;
+    }
+}
+export class RgthreeNumberInputWidget extends RgthreeBaseWidget {
+    constructor(name, initialValue = 5, min = 1, max = 100) {
+        super(name);
+        this.value = initialValue;
+        this.min = min;
+        this.max = max;
+    }
+
+    draw(ctx, node, width, posY, height) {
+        ctx.save();
+        ctx.fillStyle = "#222";
+        ctx.fillRect(15, posY, width - 30, height - 4);
+        ctx.strokeStyle = "#666";
+        ctx.strokeRect(15, posY, width - 30, height - 4);
+
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = LiteGraph.WIDGET_TEXT_COLOR;
+        ctx.fillText(`Randomize: ${this.value}`, width / 2, posY + height / 2);
+        ctx.restore();
+    }
+
+    mouse(event, pos, node) {
+        if (event.type === "pointerdown") {
+            const canvas = app.canvas;
+            canvas.prompt("Number of LoRAs to Randomize", this.value, (v) => {
+                let num = parseInt(v, 10);
+                if (!isNaN(num)) {
+                    this.value = Math.max(this.min, Math.min(this.max, num));
+                    node.setDirtyCanvas(true);
+                }
+            }, event);
+            return true;
+        }
+        return false;
+    }
+}
