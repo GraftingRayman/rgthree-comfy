@@ -5,7 +5,7 @@ import { rgthree } from "./rgthree.js";
 import { addConnectionLayoutSupport } from "./utils.js";
 import { NodeTypesString } from "./constants.js";
 import { drawInfoIcon, drawNumberWidgetPart, drawRoundedRectangle, drawTogglePart, fitString, isLowQuality, } from "./utils_canvas.js";
-import { RgthreeBaseWidget, RgthreeBetterButtonWidget, RgthreeDividerWidget, } from "./utils_widgets.js";
+import { RgthreeBaseWidget, RgthreeBetterButtonWidget, RgthreeDividerWidget, RgthreeNumberInputWidget, } from "./utils_widgets.js";
 import { rgthreeApi } from "../../rgthree/common/rgthree_api.js";
 import { showLoraChooser } from "./utils_menu.js";
 import { moveArrayItem, removeArrayItem } from "../../rgthree/common/shared_utils.js";
@@ -67,12 +67,17 @@ class RgthreePowerLoraLoader extends RgthreeBaseServerNode {
     addNonLoraWidgets() {
         moveArrayItem(this.widgets, this.addCustomWidget(new RgthreeDividerWidget({ marginTop: 4, marginBottom: 0, thickness: 0 })), 0);
         moveArrayItem(this.widgets, this.addCustomWidget(new PowerLoraLoaderHeaderWidget()), 1);
+        this.numLorasWidget = this.addCustomWidget(new RgthreeNumberInputWidget("Number of Randomized LoRAs", 5, 1, 100));
         this.addCustomWidget(new RgthreeBetterButtonWidget("🎲 Randomize Loras", () => {
             this.randomizeLoras();
             return true;
         }));
         this.addCustomWidget(new RgthreeBetterButtonWidget("🎲 Randomize Enabled Loras", () => {
             this.randomizeEnabledLoras();
+            return true;
+        }));
+        this.addCustomWidget(new RgthreeBetterButtonWidget("⚖ Normalize Enabled Loras", () => {
+            this.normalizeEnabledLoras();
             return true;
         }));
         this.widgetButtonSpacer = this.addCustomWidget(new RgthreeDividerWidget({ marginTop: 4, marginBottom: 0, thickness: 0 }));
@@ -198,34 +203,37 @@ class RgthreePowerLoraLoader extends RgthreeBaseServerNode {
         }
     }
     randomizeLoras() {
-        // Step 1: Identify all LoRA widgets
+        // Step 1: Get user-defined number of LoRAs to randomize
+        const numToRandomize = this.numLorasWidget?.value || 5;
+
+        // Step 2: Identify all LoRA widgets
         const loraWidgets = this.widgets.filter(widget => widget.name.startsWith("lora_"));
 
-        // Step 2: Shuffle LoRA widgets to randomize selection
+        // Step 3: Shuffle LoRA widgets to randomize selection
         const shuffledWidgets = loraWidgets.sort(() => Math.random() - 0.5);
 
-        // Step 3: Enable the first five LoRAs and disable the rest
+        // Step 4: Enable the specified number of LoRAs and disable the rest
         shuffledWidgets.forEach((widget, index) => {
-            widget.value.on = index < 5;
+            widget.value.on = index < numToRandomize;
         });
 
-        // Step 4: Collect enabled LoRAs
-        const enabledWidgets = shuffledWidgets.slice(0, 5);
+        // Step 5: Collect enabled LoRAs
+        const enabledWidgets = shuffledWidgets.slice(0, numToRandomize);
 
         if (enabledWidgets.length > 0) {
-            // Step 5: Generate random weights and normalize them
+            // Step 6: Generate random weights and normalize them
             let randomWeights = enabledWidgets.map(() => Math.random());
             const sumWeights = randomWeights.reduce((sum, weight) => sum + weight, 0);
             randomWeights = randomWeights.map(weight => weight / sumWeights);
 
-            // Step 6: Assign normalized weights to the enabled LoRAs
+            // Step 7: Assign normalized weights to the enabled LoRAs
             enabledWidgets.forEach((widget, index) => {
                 widget.value.strength = randomWeights[index];
             });
         } else {
             console.log("No LoRAs enabled after randomization.");
         }
-
+    
         // Ensure the UI reflects the changes
         this.setDirtyCanvas(true, true);
     }
@@ -251,6 +259,31 @@ class RgthreePowerLoraLoader extends RgthreeBaseServerNode {
 
         // Ensure the UI reflects the changes
         this.setDirtyCanvas(true, true);
+    }
+    normalizeEnabledLoras() {
+        // Step 1: Identify enabled LoRA widgets
+        const enabledWidgets = this.widgets.filter(widget => 
+            widget.name?.startsWith("lora_") && widget.value?.on
+        );
+
+        if (enabledWidgets.length === 0) {
+            console.log("No enabled LoRAs to normalize.");
+            return;
+        }
+
+        // Step 2: Calculate the normalized weight (1 divided by number of enabled LoRAs)
+        const normalizedWeight = 1 / enabledWidgets.length;
+
+        // Step 3: Assign the normalized weight to all enabled LoRAs
+        enabledWidgets.forEach(widget => {
+            widget.value.strength = normalizedWeight;
+            if (widget.value.strengthTwo !== null && widget.value.strengthTwo !== undefined) {
+                widget.value.strengthTwo = normalizedWeight;
+            }
+        });
+        // Step 4: Update the UI
+        this.setDirtyCanvas(true, true);
+        console.log(`Normalized ${enabledWidgets.length} enabled LoRAs to weight ${normalizedWeight.toFixed(4)} each.`);
     }
 
     static setUp(comfyClass, nodeData) {
